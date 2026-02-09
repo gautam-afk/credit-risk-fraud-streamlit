@@ -1,0 +1,24 @@
+credit_risk:
+  dataset_path: data/raw/german_credit.csv
+  target_column: target
+
+  numerical_features:
+    - age
+    - credit_amount
+    - month_duration
+
+  categorical_features:
+    - housing
+    - years_employment
+    - purpose
+
+
+fraud_detection:
+  dataset_path: data/raw/fraud_dataset.csv
+  target_column: Class
+
+  numerical_features:
+    - Amount
+    - Time
+
+  categorical_features: []
