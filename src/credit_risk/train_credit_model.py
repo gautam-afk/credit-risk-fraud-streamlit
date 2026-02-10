@@ -12,7 +12,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.preprocessing.dataset_loader import load_dataset
-from src.preprocessing.preprocessor import prepare_data
+from src.preprocessing.preprocessor import build_preprocessor
 
 
 def train_credit_model():
@@ -26,13 +26,9 @@ def train_credit_model():
         "bad": 0
     })
 
-    # Prepare data
-    X, y, preprocessor = prepare_data(
-        df,
-        config["target_column"],
-        config["numerical_features"],
-        config["categorical_features"]
-    )
+    feature_columns = config["numerical_features"] + config["categorical_features"]
+    X = df[feature_columns]
+    y = df[config["target_column"]]
 
     # Train-test split
     X_train, X_test, y_train, y_test = train_test_split(
@@ -43,12 +39,20 @@ def train_credit_model():
         stratify=y
     )
 
+    # Fit preprocessing only on training split to avoid leakage
+    preprocessor = build_preprocessor(
+        config["numerical_features"],
+        config["categorical_features"]
+    )
+    X_train_processed = preprocessor.fit_transform(X_train)
+    X_test_processed = preprocessor.transform(X_test)
+
     # Model
     model = LogisticRegression(max_iter=1000)
-    model.fit(X_train, y_train)
+    model.fit(X_train_processed, y_train)
 
     # Evaluation
-    y_pred = model.predict(X_test)
+    y_pred = model.predict(X_test_processed)
 
     print("Accuracy:", accuracy_score(y_test, y_pred))
     print(classification_report(y_test, y_pred))

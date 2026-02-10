@@ -1,4 +1,5 @@
 import pandas as pd
+from pathlib import Path
 from src.config.config_loader import load_config
 
 
@@ -6,8 +7,9 @@ def load_dataset(module_name):
     config = load_config()
     module_config = config[module_name]
 
-    path = module_config["dataset_path"]
-    target = module_config["target_column"]
+    path = Path(module_config["dataset_path"])
+    if not path.exists():
+        raise FileNotFoundError(f"Dataset file not found: {path}")
 
     df = pd.read_csv(path)
 
