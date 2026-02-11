@@ -10,3 +10,6 @@ __pycache__/
 
 # Windows system files
 desktop.ini
+
+# Trained model artifacts
+models/
