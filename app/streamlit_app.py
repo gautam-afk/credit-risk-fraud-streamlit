@@ -8,13 +8,18 @@ st.title("Credit Risk and Fraud Detection System")
 
 st.header("Enter Applicant Details")
 
-age = st.number_input("Age", min_value=18, max_value=100, value=30)
+# -----------------------------
+# Input Layout
+# -----------------------------
+col1, col2 = st.columns(2)
 
-credit_amount = st.number_input("Credit Amount", min_value=0, value=5000)
+with col1:
+    age = st.number_input("Age", min_value=18, max_value=100, value=30)
+    credit_amount = st.number_input("Credit Amount", min_value=0, value=5000)
 
-month_duration = st.number_input("Loan Duration (months)", min_value=1, value=12)
-
-housing = st.selectbox("Housing", ["own", "rent", "free"])
+with col2:
+    month_duration = st.number_input("Loan Duration (months)", min_value=1, value=12)
+    housing = st.selectbox("Housing", ["own", "rent", "free"])
 
 years_employment = st.selectbox(
     "Years of Employment",
@@ -26,6 +31,11 @@ purpose = st.selectbox(
     ["car", "furniture", "radio/TV", "education", "business", "other"]
 )
 
+st.divider()
+
+# -----------------------------
+# Run Decision Engine
+# -----------------------------
 if st.button("Evaluate Applicant"):
 
     input_data = pd.DataFrame([{
@@ -39,11 +49,41 @@ if st.button("Evaluate Applicant"):
 
     result = generate_final_decision(input_data)
 
+    # -----------------------------
+    # Final Decision
+    # -----------------------------
     st.subheader("Final Decision")
-    st.write(result["final_decision"])
+    decision = result["final_decision"]
 
-    st.subheader("Credit Details")
-    st.write(result["credit"])
+    if decision == "Approve":
+        st.success(f"Decision: {decision}")
+    elif decision == "Review":
+        st.warning(f"Decision: {decision}")
+    else:
+        st.error(f"Decision: {decision}")
 
-    st.subheader("Fraud Details")
-    st.write(result["fraud"])
+    st.divider()
+
+    # -----------------------------
+    # Credit Risk Section
+    # -----------------------------
+    st.subheader("Credit Risk Analysis")
+    credit = result["credit"]
+    c1, c2, c3 = st.columns(3)
+
+    c1.metric("Probability of Default", credit["probability_default"])
+    c2.metric("Risk Score", credit["risk_score"])
+    c3.metric("Risk Category", credit["risk_category"])
+
+    st.divider()
+
+    # -----------------------------
+    # Fraud Risk Section
+    # -----------------------------
+    st.subheader("Fraud Risk Analysis")
+    fraud = result["fraud"]
+    f1, f2, f3 = st.columns(3)
+
+    f1.metric("Fraud Probability", fraud["probability_fraud"])
+    f2.metric("Fraud Score", fraud["fraud_score"])
+    f3.metric("Fraud Category", fraud["fraud_category"])
