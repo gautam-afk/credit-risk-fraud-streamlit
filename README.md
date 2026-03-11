@@ -1,10 +1,10 @@
 # Credit Risk and Fraud Detection
 
-A config-driven ML system that trains and serves:
-- Credit risk model (German Credit dataset)
-- Fraud risk model (Credit Card Fraud dataset)
-- Unified decision engine (fraud override over credit)
-- Streamlit UI for end-to-end evaluation
+Config-driven ML system for:
+- credit risk scoring (German Credit)
+- fraud risk scoring (credit card fraud features)
+- unified final decisioning with fraud override
+- interactive Streamlit demo
 
 ## Project Structure
 
@@ -12,12 +12,18 @@ A config-driven ML system that trains and serves:
 app/
   streamlit_app.py
 src/
+  common/
+    model_utils.py
+    schemas.py
+    validation.py
   config/
     config.yaml
     config_loader.py
   preprocessing/
+    data_inspection.py
     dataset_loader.py
     preprocessor.py
+    test_preprocessing.py
   credit_risk/
     train_credit_model.py
     credit_scoring.py
@@ -28,17 +34,17 @@ src/
     test_fraud_scoring.py
   decision_engine.py
   test_decision_engine.py
+app.py
+requirements.txt
 ```
 
 ## Datasets
 
-Configured in `src/config/config.yaml`:
-- `credit_risk` -> `data/raw/german_credit.csv`
-- `fraud_detection` -> `data/raw/fraud_dataset.csv`
+Paths are configured in `src/config/config.yaml`:
+- `credit_risk.dataset_path`: `data/raw/german_credit.csv`
+- `fraud_detection.dataset_path`: `data/raw/fraud_dataset.csv`
 
-## Installation
-
-From project root:
+## Setup
 
 ```bash
 python -m pip install -r requirements.txt
@@ -46,52 +52,59 @@ python -m pip install -r requirements.txt
 
 ## Train Models
 
-Use module mode for files inside `src/`:
+Run from project root:
 
 ```bash
 python -m src.credit_risk.train_credit_model
 python -m src.fraud_detection.train_fraud_model
 ```
 
-Expected outputs include evaluation metrics and success messages.
+Artifacts are saved to:
+- `models/credit_model.pkl`
+- `models/fraud_model.pkl`
 
-## Run Scoring Tests
+## Smoke Tests
 
 ```bash
 python -m src.credit_risk.test_credit_scoring
 python -m src.fraud_detection.test_fraud_scoring
 python -m src.test_decision_engine
+python -m src.preprocessing.test_preprocessing
 ```
 
-`src.test_decision_engine` verifies unified output with:
-- `credit` block
-- `fraud` block
-- `final_decision`
-
-## Run Streamlit App
+## Run App
 
 ```bash
 python -m streamlit run app/streamlit_app.py
 ```
 
-If `streamlit` is available on PATH, this also works:
+Optional helper:
 
 ```bash
-streamlit run app/streamlit_app.py
+python app.py
 ```
 
-## Decision Logic
+## Decision Rules
 
-`src/decision_engine.py` applies:
-- Credit scoring decision from `src/credit_risk/credit_scoring.py`
-- Fraud scoring decision from `src/fraud_detection/fraud_scoring.py`
-- Final override rule:
-  - High fraud risk -> `Reject`
-  - Medium fraud risk -> `Review`
-  - Low fraud risk -> credit decision
+Credit model output:
+- probability of default
+- risk score (`(1 - prob_default) * 100`)
+- risk category (`Low`, `Medium`, `High`)
+- credit decision (`Approve`, `Review`, `Reject`)
+
+Fraud model output:
+- probability of fraud
+- fraud score (`prob_fraud * 100`)
+- fraud category (`Low Fraud Risk`, `Medium Fraud Risk`, `High Fraud Risk`)
+- fraud decision (`Clear`, `Review`, `Reject`)
+
+Final decision in `src/decision_engine.py`:
+- `High Fraud Risk` -> `Reject`
+- `Medium Fraud Risk` -> `Review`
+- otherwise -> credit decision
 
 ## Notes
 
-- Fraud data is imbalanced; accuracy alone is not enough.
-- Prioritize confusion matrix, precision/recall/F1 for fraud class.
-- Trained artifacts under `models/` are ignored by git (`.gitignore`).
+- Train models before running scoring modules or Streamlit UI.
+- Fraud scoring accepts either `Amount`/`Time` or mapped fields `credit_amount`/`month_duration`.
+- For fraud, monitor confusion matrix and class-wise precision/recall/F1, not accuracy alone.
