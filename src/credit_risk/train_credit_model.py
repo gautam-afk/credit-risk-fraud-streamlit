@@ -25,6 +25,11 @@ def train_credit_model():
         "good": 1,
         "bad": 0
     })
+    if df[config["target_column"]].isna().any():
+        raise ValueError(
+            "Unexpected target labels found in credit dataset. "
+            "Expected labels: 'good' and 'bad'."
+        )
 
     feature_columns = config["numerical_features"] + config["categorical_features"]
     X = df[feature_columns]
@@ -58,10 +63,9 @@ def train_credit_model():
     print(classification_report(y_test, y_pred))
 
     # Save model + preprocessor
-    joblib.dump(
-        (model, preprocessor),
-        "models/credit_model.pkl"
-    )
+    model_path = Path("models/credit_model.pkl")
+    model_path.parent.mkdir(parents=True, exist_ok=True)
+    joblib.dump((model, preprocessor), model_path)
 
     print("Model saved successfully!")
 

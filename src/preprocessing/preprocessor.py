@@ -3,6 +3,8 @@ from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
+from src.common.validation import require_columns
+
 
 def build_preprocessor(numerical_features, categorical_features):
     numeric_pipeline = Pipeline([
@@ -24,6 +26,9 @@ def build_preprocessor(numerical_features, categorical_features):
 
 
 def prepare_data(df, target_column, numerical_features, categorical_features):
+    required_columns = numerical_features + categorical_features + [target_column]
+    require_columns(df, required_columns, input_name="Dataset")
+
     X = df[numerical_features + categorical_features]
     y = df[target_column]
 

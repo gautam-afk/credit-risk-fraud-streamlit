@@ -1,15 +1,18 @@
-import joblib
-from pathlib import Path
+from src.common.model_utils import get_positive_class_probability, load_model_bundle
+from src.common.schemas import CreditRiskResult
+from src.common.validation import get_required_columns_from_preprocessor, require_columns, require_non_empty_dataframe
 
 MODEL_PATH = "models/credit_model.pkl"
 
 
+def _validate_credit_input(input_df, preprocessor):
+    require_non_empty_dataframe(input_df, input_name="Credit input")
+    required_columns = get_required_columns_from_preprocessor(preprocessor)
+    require_columns(input_df, required_columns, input_name="Credit input")
+
+
 def load_credit_model():
-    if not Path(MODEL_PATH).exists():
-        raise FileNotFoundError(
-            "Model file not found at models/credit_model.pkl. Run training first."
-        )
-    model, preprocessor = joblib.load(MODEL_PATH)
+    model, preprocessor = load_model_bundle(MODEL_PATH)
     return model, preprocessor
 
 
@@ -45,20 +48,24 @@ def make_credit_decision(category):
 
 def predict_credit_risk(input_df):
     model, preprocessor = load_credit_model()
+    _validate_credit_input(input_df, preprocessor)
 
     # Apply same preprocessing used during training
     X_processed = preprocessor.transform(input_df)
 
-    # Probability of default is class 1
-    prob_default = model.predict_proba(X_processed)[0][1]
+    # Positive class (1) = default.
+    prob_default = get_positive_class_probability(
+        model, X_processed, positive_class=1, model_name="credit model"
+    )
 
     score = calculate_risk_score(prob_default)
     category = assign_risk_category(score)
     decision = make_credit_decision(category)
 
-    return {
-        "probability_default": round(prob_default, 4),
-        "risk_score": score,
-        "risk_category": category,
-        "decision": decision
-    }
+    result = CreditRiskResult(
+        probability_default=round(float(prob_default), 4),
+        risk_score=score,
+        risk_category=category,
+        decision=decision,
+    )
+    return result.to_dict()
