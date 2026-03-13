@@ -1,12 +1,13 @@
 # Credit Risk and Fraud Detection
 
-Config-driven ML system for:
-- credit risk scoring (German Credit)
-- fraud risk scoring (credit card fraud features)
-- unified final decisioning with fraud override
-- interactive Streamlit demo
+This project combines two scoring pipelines into one decision engine:
 
-## Project Structure
+- credit risk scoring on the German Credit dataset
+- fraud risk scoring on transaction-style features
+- final decisioning where fraud risk can override credit approval
+- a small Streamlit UI for manual evaluation
+
+## Repository Layout
 
 ```text
 app/
@@ -19,51 +20,129 @@ src/
   config/
     config.yaml
     config_loader.py
+  credit_risk/
+    credit_scoring.py
+    test_credit_scoring.py
+    train_credit_model.py
+  fraud_detection/
+    fraud_scoring.py
+    test_fraud_scoring.py
+    train_fraud_model.py
   preprocessing/
     data_inspection.py
     dataset_loader.py
     preprocessor.py
     test_preprocessing.py
-  credit_risk/
-    train_credit_model.py
-    credit_scoring.py
-    test_credit_scoring.py
-  fraud_detection/
-    train_fraud_model.py
-    fraud_scoring.py
-    test_fraud_scoring.py
   decision_engine.py
   test_decision_engine.py
 app.py
 requirements.txt
 ```
 
-## Datasets
+## How It Works
 
-Paths are configured in `src/config/config.yaml`:
-- `credit_risk.dataset_path`: `data/raw/german_credit.csv`
-- `fraud_detection.dataset_path`: `data/raw/fraud_dataset.csv`
+### Credit risk pipeline
+
+Configured in `src/config/config.yaml` with:
+
+- dataset: `data/raw/german_credit.csv`
+- target column: `target`
+- numerical features: `age`, `credit_amount`, `month_duration`
+- categorical features: `housing`, `years_employment`, `purpose`
+
+Training:
+
+- maps target labels `good -> 1` and `bad -> 0`
+- imputes missing values
+- standardizes numeric features
+- one-hot encodes categorical features
+- trains a `LogisticRegression` model
+
+Scoring output:
+
+- `probability_default`
+- `risk_score = (1 - probability_default) * 100`
+- `risk_category` in `Low Risk`, `Medium Risk`, `High Risk`
+- `decision` in `Approve`, `Review`, `Reject`
+
+### Fraud risk pipeline
+
+Configured in `src/config/config.yaml` with:
+
+- dataset: `data/raw/fraud_dataset.csv`
+- target column: `Class`
+- numerical features: `Amount`, `Time`
+
+Training:
+
+- imputes and scales numerical inputs
+- trains a class-weighted `LogisticRegression`
+- prints confusion matrix and classification report
+
+Scoring output:
+
+- `probability_fraud`
+- `fraud_score = probability_fraud * 100`
+- `fraud_category` in `Low Fraud Risk`, `Medium Fraud Risk`, `High Fraud Risk`
+- `fraud_decision` in `Clear`, `Review`, `Reject`
+
+The fraud scorer accepts either:
+
+- direct fraud fields: `Amount`, `Time`
+- mapped application fields: `credit_amount`, `month_duration`
+
+### Final decision engine
+
+`src/decision_engine.py` runs both models and applies fraud override logic:
+
+- `High Fraud Risk` -> `Reject`
+- `Medium Fraud Risk` -> `Review`
+- otherwise -> credit decision
 
 ## Setup
+
+Install dependencies from the project root:
 
 ```bash
 python -m pip install -r requirements.txt
 ```
 
+Dependencies:
+
+- `streamlit`
+- `joblib`
+- `pandas`
+- `scikit-learn`
+- `PyYAML`
+
+## Data Requirements
+
+Expected dataset paths are defined in `src/config/config.yaml`:
+
+- `credit_risk.dataset_path: data/raw/german_credit.csv`
+- `fraud_detection.dataset_path: data/raw/fraud_dataset.csv`
+
+`src/preprocessing/dataset_loader.py` resolves relative paths from the repository root and raises an error if a file is missing.
+
 ## Train Models
 
-Run from project root:
+Run from the repository root:
 
 ```bash
 python -m src.credit_risk.train_credit_model
 python -m src.fraud_detection.train_fraud_model
 ```
 
-Artifacts are saved to:
+Saved artifacts:
+
 - `models/credit_model.pkl`
 - `models/fraud_model.pkl`
 
-## Smoke Tests
+Train the models before running scoring code, tests, or the Streamlit app.
+
+## Run Tests
+
+Smoke tests available in the repo:
 
 ```bash
 python -m src.credit_risk.test_credit_scoring
@@ -72,39 +151,35 @@ python -m src.test_decision_engine
 python -m src.preprocessing.test_preprocessing
 ```
 
-## Run App
+## Run the App
+
+Launch the Streamlit UI:
 
 ```bash
-python -m streamlit run app/streamlit_app.py
+streamlit run app/streamlit_app.py
 ```
 
-Optional helper:
+`app.py` is only a small helper that prints the Streamlit command.
 
-```bash
-python app.py
-```
+## Streamlit Inputs
 
-## Decision Rules
+The UI collects:
 
-Credit model output:
-- probability of default
-- risk score (`(1 - prob_default) * 100`)
-- risk category (`Low`, `Medium`, `High`)
-- credit decision (`Approve`, `Review`, `Reject`)
+- `age`
+- `credit_amount`
+- `month_duration`
+- `housing`
+- `years_employment`
+- `purpose`
 
-Fraud model output:
-- probability of fraud
-- fraud score (`prob_fraud * 100`)
-- fraud category (`Low Fraud Risk`, `Medium Fraud Risk`, `High Fraud Risk`)
-- fraud decision (`Clear`, `Review`, `Reject`)
+It then displays:
 
-Final decision in `src/decision_engine.py`:
-- `High Fraud Risk` -> `Reject`
-- `Medium Fraud Risk` -> `Review`
-- otherwise -> credit decision
+- final decision
+- credit probability, score, and category
+- fraud probability, score, and category
 
 ## Notes
 
-- Train models before running scoring modules or Streamlit UI.
-- Fraud scoring accepts either `Amount`/`Time` or mapped fields `credit_amount`/`month_duration`.
-- For fraud, monitor confusion matrix and class-wise precision/recall/F1, not accuracy alone.
+- Keep feature names aligned with `src/config/config.yaml`.
+- Credit scoring validates required columns against the saved preprocessor schema.
+- Fraud evaluation should be judged with class-wise metrics and confusion matrix, not raw accuracy alone.
