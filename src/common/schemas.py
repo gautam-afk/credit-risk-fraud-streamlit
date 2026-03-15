@@ -3,10 +3,11 @@ from dataclasses import asdict, dataclass
 
 @dataclass(frozen=True)
 class CreditRiskResult:
-    probability_default: float
-    risk_score: float
-    risk_category: str
-    decision: str
+    credit_probability: float
+    credit_score: float
+    credit_category: str
+    credit_decision: str
+    credit_latency_ms: float
 
     def to_dict(self):
         return asdict(self)
@@ -14,10 +15,13 @@ class CreditRiskResult:
 
 @dataclass(frozen=True)
 class FraudRiskResult:
-    probability_fraud: float
-    fraud_score: float
+    fraud_probability: float | None
+    fraud_score: float | None
     fraud_category: str
     fraud_decision: str
+    fraud_latency_ms: float | None
+    fraud_status: str = "scored"
+    fraud_reason: str | None = None
 
     def to_dict(self):
         return asdict(self)
@@ -28,7 +32,7 @@ class FinalDecisionResult:
     credit: dict
     fraud: dict
     final_decision: str
+    decision_latency_ms: float
 
     def to_dict(self):
         return asdict(self)
-

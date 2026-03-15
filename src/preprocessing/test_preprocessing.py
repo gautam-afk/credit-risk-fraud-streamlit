@@ -1,14 +1,18 @@
 from src.preprocessing.dataset_loader import load_dataset
 from src.preprocessing.preprocessor import prepare_data
 
-df, config = load_dataset("fraud_detection")
+def test_prepare_data_smoke():
+    df, config = load_dataset("fraud_detection")
 
-X, y, preprocessor = prepare_data(
-    df,
-    config["target_column"],
-    config["numerical_features"],
-    config["categorical_features"]
-)
+    X, y, _ = prepare_data(
+        df,
+        config["target_column"],
+        config["numerical_features"],
+        config["categorical_features"]
+    )
 
-print("X shape:", X.shape)
-print("y length:", len(y))
+    assert X.shape[0] == len(y)
+
+
+if __name__ == "__main__":
+    test_prepare_data_smoke()

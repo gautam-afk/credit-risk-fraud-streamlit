@@ -1,19 +1,23 @@
-# Credit Risk and Fraud Detection
+# Credit Risk And Fraud Detection
 
-This project combines two scoring pipelines into one decision engine:
+Modular ML system for:
 
-- credit risk scoring on the German Credit dataset
-- fraud risk scoring on transaction-style features
-- final decisioning where fraud risk can override credit approval
-- a small Streamlit UI for manual evaluation
+- credit risk scoring on German Credit applications
+- fraud scoring on transaction inputs
+- combined decisioning where fraud can override credit
+- Streamlit-based manual scoring and portfolio analytics
 
-## Repository Layout
+## Architecture
 
 ```text
 app/
   streamlit_app.py
+app.py
 src/
+  cli/
+    batch_scoring.py
   common/
+    logging_utils.py
     model_utils.py
     schemas.py
     validation.py
@@ -29,104 +33,62 @@ src/
     test_fraud_scoring.py
     train_fraud_model.py
   preprocessing/
-    data_inspection.py
     dataset_loader.py
+    data_inspection.py
     preprocessor.py
     test_preprocessing.py
   decision_engine.py
+  portfolio_analytics.py
   test_decision_engine.py
-app.py
+  test_portfolio_analytics.py
 requirements.txt
 ```
 
-## How It Works
+## Module Overview
 
-### Credit risk pipeline
+### Credit module
 
-Configured in `src/config/config.yaml` with:
+- Dataset: `data/raw/german_credit.csv`
+- Features:
+  - numerical: `age`, `credit_amount`, `month_duration`
+  - categorical: `housing`, `years_employment`, `purpose`
+- Target:
+  - `target`
+  - encoded as `good -> 0`, `bad -> 1`
+- Outputs:
+  - `credit_probability`
+  - `credit_score`
+  - `credit_category`
+  - `credit_decision`
+  - `credit_latency_ms`
 
-- dataset: `data/raw/german_credit.csv`
-- target column: `target`
-- numerical features: `age`, `credit_amount`, `month_duration`
-- categorical features: `housing`, `years_employment`, `purpose`
+### Fraud module
 
-Training:
+- Dataset: `data/raw/fraud_dataset.csv`
+- Features:
+  - numerical: `Amount`, `Time`
+- Target:
+  - `Class`
+  - numeric `0/1`
+- Outputs:
+  - `fraud_probability`
+  - `fraud_score`
+  - `fraud_category`
+  - `fraud_decision`
+  - `fraud_latency_ms`
 
-- maps target labels `good -> 1` and `bad -> 0`
-- imputes missing values
-- standardizes numeric features
-- one-hot encodes categorical features
-- trains a `LogisticRegression` model
+### Decision engine
 
-Scoring output:
+- Runs credit scoring on the credit feature space
+- Runs fraud scoring only when fraud columns are present
+- Applies override logic:
+  - `High Fraud Risk` -> `Reject`
+  - `Medium Fraud Risk` -> `Review`
+  - otherwise -> use `credit_decision`
 
-- `probability_default`
-- `risk_score = (1 - probability_default) * 100`
-- `risk_category` in `Low Risk`, `Medium Risk`, `High Risk`
-- `decision` in `Approve`, `Review`, `Reject`
+## Training
 
-### Fraud risk pipeline
-
-Configured in `src/config/config.yaml` with:
-
-- dataset: `data/raw/fraud_dataset.csv`
-- target column: `Class`
-- numerical features: `Amount`, `Time`
-
-Training:
-
-- imputes and scales numerical inputs
-- trains a class-weighted `LogisticRegression`
-- prints confusion matrix and classification report
-
-Scoring output:
-
-- `probability_fraud`
-- `fraud_score = probability_fraud * 100`
-- `fraud_category` in `Low Fraud Risk`, `Medium Fraud Risk`, `High Fraud Risk`
-- `fraud_decision` in `Clear`, `Review`, `Reject`
-
-The fraud scorer accepts either:
-
-- direct fraud fields: `Amount`, `Time`
-- mapped application fields: `credit_amount`, `month_duration`
-
-### Final decision engine
-
-`src/decision_engine.py` runs both models and applies fraud override logic:
-
-- `High Fraud Risk` -> `Reject`
-- `Medium Fraud Risk` -> `Review`
-- otherwise -> credit decision
-
-## Setup
-
-Install dependencies from the project root:
-
-```bash
-python -m pip install -r requirements.txt
-```
-
-Dependencies:
-
-- `streamlit`
-- `joblib`
-- `pandas`
-- `scikit-learn`
-- `PyYAML`
-
-## Data Requirements
-
-Expected dataset paths are defined in `src/config/config.yaml`:
-
-- `credit_risk.dataset_path: data/raw/german_credit.csv`
-- `fraud_detection.dataset_path: data/raw/fraud_dataset.csv`
-
-`src/preprocessing/dataset_loader.py` resolves relative paths from the repository root and raises an error if a file is missing.
-
-## Train Models
-
-Run from the repository root:
+Train from the repository root:
 
 ```bash
 python -m src.credit_risk.train_credit_model
@@ -138,48 +100,111 @@ Saved artifacts:
 - `models/credit_model.pkl`
 - `models/fraud_model.pkl`
 
-Train the models before running scoring code, tests, or the Streamlit app.
-
-## Run Tests
-
-Smoke tests available in the repo:
-
-```bash
-python -m src.credit_risk.test_credit_scoring
-python -m src.fraud_detection.test_fraud_scoring
-python -m src.test_decision_engine
-python -m src.preprocessing.test_preprocessing
-```
-
-## Run the App
-
-Launch the Streamlit UI:
+## Run The UI
 
 ```bash
 streamlit run app/streamlit_app.py
 ```
 
-`app.py` is only a small helper that prints the Streamlit command.
+The applicant form collects:
 
-## Streamlit Inputs
+- credit fields:
+  - `age`
+  - `credit_amount`
+  - `month_duration`
+  - `housing`
+  - `years_employment`
+  - `purpose`
+- fraud fields:
+  - `Amount`
+  - `Time`
 
-The UI collects:
+The portfolio tab accepts a CSV and summarizes:
 
-- `age`
-- `credit_amount`
-- `month_duration`
-- `housing`
-- `years_employment`
-- `purpose`
+- average credit probability and score
+- fraud distribution
+- approval / review / rejection counts
+- latency-aware portfolio metrics
 
-It then displays:
+## Run Batch Scoring From CLI
 
-- final decision
-- credit probability, score, and category
-- fraud probability, score, and category
+Score a credit or combined CSV from the terminal:
 
-## Notes
+```bash
+python -m src.cli.batch_scoring input.csv outputs/
+```
 
-- Keep feature names aligned with `src/config/config.yaml`.
-- Credit scoring validates required columns against the saved preprocessor schema.
-- Fraud evaluation should be judged with class-wise metrics and confusion matrix, not raw accuracy alone.
+With a separate fraud CSV aligned row-for-row:
+
+```bash
+python -m src.cli.batch_scoring credit.csv outputs/ --fraud-csv fraud.csv --chunk-size 2000
+```
+
+CLI artifacts:
+
+- `scored_portfolio.csv`
+- `validation_failures.csv`
+- `portfolio_metrics.json`
+
+CLI behavior:
+
+- processes large files in chunks
+- continues when individual rows fail validation or inference
+- exits with code `1` if every row fails
+- exits with code `2` on fatal runtime errors
+
+## Batch Output Contract
+
+The enriched scored CSV preserves the original input columns and adds:
+
+- `credit_probability`
+- `credit_score`
+- `credit_category`
+- `fraud_probability`
+- `fraud_score`
+- `fraud_category`
+- `final_decision`
+- `scoring_status`
+- `scoring_error`
+
+`scoring_status` values:
+
+- `scored`
+- `validation_failed`
+- `inference_failed`
+
+The validation report CSV contains:
+
+- original row payload
+- `source_row_index`
+- `validation_status`
+- `validation_error`
+
+## Batch Processing Notes
+
+The portfolio engine:
+
+- scores rows individually through the decision engine
+- separates `validation_failed` rows from `inference_failed` rows
+- writes validation failures to a dedicated report
+- maintains portfolio metrics incrementally during chunked processing
+
+## Testing
+
+Run smoke tests from the repository root:
+
+```bash
+python -m src.credit_risk.test_credit_scoring
+python -m src.fraud_detection.test_fraud_scoring
+python -m src.test_decision_engine
+python -m src.test_portfolio_analytics
+python -m src.preprocessing.test_preprocessing
+```
+
+## Design Notes
+
+- Model bundles are resolved relative to project root and cached lazily.
+- Scoring functions enforce single-row inference and align feature order before preprocessing.
+- Extra columns are ignored safely.
+- Missing required columns raise clean exceptions.
+- Fraud scoring does not derive features from credit inputs.

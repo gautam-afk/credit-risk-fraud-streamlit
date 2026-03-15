@@ -8,17 +8,18 @@ def test_credit_scoring_smoke():
     result = predict_credit_risk(sample)
 
     assert set(result.keys()) == {
-        "probability_default",
-        "risk_score",
-        "risk_category",
-        "decision",
+        "credit_probability",
+        "credit_score",
+        "credit_category",
+        "credit_decision",
+        "credit_latency_ms",
     }
-    assert 0 <= result["probability_default"] <= 1
-    assert 0 <= result["risk_score"] <= 100
-    assert result["risk_category"] in {"Low Risk", "Medium Risk", "High Risk"}
-    assert result["decision"] in {"Approve", "Review", "Reject"}
+    assert 0 <= result["credit_probability"] <= 1
+    assert 0 <= result["credit_score"] <= 100
+    assert result["credit_category"] in {"Low Risk", "Medium Risk", "High Risk"}
+    assert result["credit_decision"] in {"Approve", "Review", "Reject"}
+    assert result["credit_latency_ms"] >= 0
 
 
 if __name__ == "__main__":
     test_credit_scoring_smoke()
-    print("Credit scoring smoke test passed.")

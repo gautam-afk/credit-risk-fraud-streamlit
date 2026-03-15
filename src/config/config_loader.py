@@ -17,10 +17,3 @@ def load_config(path=None):
         raise ValueError(f"Config at {config_path} must be a mapping.")
 
     return config
-
-
-# Optional test block (recommended)
-if __name__ == "__main__":
-    config = load_config()
-    print("Config loaded successfully.\n")
-    print(config)

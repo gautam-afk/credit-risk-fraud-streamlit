@@ -1,5 +1,6 @@
+pandas
+numpy
+scikit-learn
 streamlit
 joblib
-pandas
-scikit-learn
-PyYAML
+pyyaml

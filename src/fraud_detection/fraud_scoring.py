@@ -1,14 +1,36 @@
-import pandas as pd
+import logging
+import time
+
+from src.common.logging_utils import get_logger
 from src.common.model_utils import get_positive_class_probability, load_model_bundle
 from src.common.schemas import FraudRiskResult
-from src.common.validation import require_non_empty_dataframe
+from src.common.validation import (
+    align_features,
+    ensure_dataframe,
+    get_preprocessor_feature_metadata,
+    get_required_columns_from_preprocessor,
+    require_non_empty_dataframe,
+    require_single_row_dataframe,
+    warn_on_unseen_categories,
+)
 
 MODEL_PATH = "models/fraud_model.pkl"
+logger = get_logger(__name__)
 
 
 def load_fraud_model():
     model, preprocessor = load_model_bundle(MODEL_PATH)
     return model, preprocessor
+
+
+def get_required_fraud_columns():
+    _, preprocessor = load_fraud_model()
+    return get_required_columns_from_preprocessor(preprocessor)
+
+
+def get_fraud_input_schema():
+    _, preprocessor = load_fraud_model()
+    return get_preprocessor_feature_metadata(preprocessor)
 
 
 def calculate_fraud_score(prob_fraud):
@@ -41,36 +63,35 @@ def make_fraud_decision(category):
         return "Clear"
 
 
-def _prepare_fraud_input(input_df):
-    """
-    Align incoming payload with fraud model schema.
-    Expected fraud features are Amount and Time.
-    """
-    if "Amount" in input_df.columns and "Time" in input_df.columns:
-        return input_df
+def _prepare_fraud_input(input_df, preprocessor):
+    fraud_input = ensure_dataframe(input_df, input_name="Fraud input")
+    require_non_empty_dataframe(fraud_input, input_name="Fraud input")
+    require_single_row_dataframe(fraud_input, input_name="Fraud input")
 
-    if "credit_amount" not in input_df.columns:
-        raise ValueError(
-            "Fraud input must contain 'Amount' or 'credit_amount' column."
-        )
-    if "month_duration" not in input_df.columns:
-        raise ValueError(
-            "Fraud input must contain 'Time' or 'month_duration' column."
-        )
-
-    amount = input_df["credit_amount"]
-    event_time = input_df["month_duration"]
-    return pd.DataFrame({"Amount": amount, "Time": event_time})
+    required_columns = get_required_columns_from_preprocessor(preprocessor)
+    aligned_fraud_input = align_features(
+        fraud_input,
+        required_columns,
+        input_name="Fraud input",
+    )
+    warn_on_unseen_categories(
+        aligned_fraud_input,
+        preprocessor,
+        input_name="Fraud input",
+    )
+    return aligned_fraud_input
 
 
 def predict_fraud_risk(input_df):
-    require_non_empty_dataframe(input_df, input_name="Fraud input")
-
+    start_time = time.perf_counter()
     model, preprocessor = load_fraud_model()
-    fraud_input = _prepare_fraud_input(input_df)
+    fraud_input = _prepare_fraud_input(input_df, preprocessor)
 
-    # Apply preprocessing used during training
-    X_processed = preprocessor.transform(fraud_input)
+    try:
+        X_processed = preprocessor.transform(fraud_input)
+    except Exception as exc:
+        logger.error("Fraud preprocessing failed: %s", exc)
+        raise RuntimeError(f"Fraud preprocessing failed: {exc}") from exc
 
     # Positive class (1) = fraud.
     prob_fraud = get_positive_class_probability(
@@ -80,11 +101,19 @@ def predict_fraud_risk(input_df):
     score = calculate_fraud_score(prob_fraud)
     category = assign_fraud_category(score)
     decision = make_fraud_decision(category)
+    latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
 
     result = FraudRiskResult(
-        probability_fraud=round(float(prob_fraud), 4),
+        fraud_probability=round(float(prob_fraud), 4),
         fraud_score=score,
         fraud_category=category,
         fraud_decision=decision,
+        fraud_latency_ms=latency_ms,
+    )
+    logger.debug(
+        "Fraud scoring completed with category=%s decision=%s latency_ms=%s",
+        category,
+        decision,
+        latency_ms,
     )
     return result.to_dict()

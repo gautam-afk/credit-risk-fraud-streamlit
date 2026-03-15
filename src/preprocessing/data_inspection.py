@@ -1,6 +1,11 @@
+import logging
 from pathlib import Path
 
 import pandas as pd
+from src.common.logging_utils import get_logger
+
+
+logger = get_logger(__name__)
 
 
 def inspect_dataset(name, dataset_path, target_column):
@@ -10,26 +15,24 @@ def inspect_dataset(name, dataset_path, target_column):
 
     df = pd.read_csv(path)
 
-    print(f"Loading {name} Dataset...\n")
-    print(f"Shape of {name} Dataset:")
-    print(df.shape)
-    print("\nColumns:")
-    print(list(df.columns))
-    print("\nFirst 5 Rows:")
-    print(df.head())
-    print("\nNull Values:")
-    print(df.isnull().sum())
-    print(f"\nTarget Distribution ({name}):")
-    print(df[target_column].value_counts())
+    logger.info("Loading %s dataset from %s", name, path)
+    logger.info("%s dataset shape: %s", name, df.shape)
+    logger.info("%s dataset columns: %s", name, list(df.columns))
+    logger.info("%s dataset preview:\n%s", name, df.head())
+    logger.info("%s dataset null values:\n%s", name, df.isnull().sum())
+    logger.info("%s target distribution:\n%s", name, df[target_column].value_counts())
 
     return df
 
 
 def main():
     inspect_dataset("Credit Risk", "data/raw/german_credit.csv", "target")
-    print("\n\n")
     inspect_dataset("Fraud", "data/raw/fraud_dataset.csv", "Class")
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    )
     main()

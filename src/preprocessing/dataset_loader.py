@@ -1,6 +1,11 @@
+import logging
 import pandas as pd
 from pathlib import Path
 from src.config.config_loader import load_config
+from src.common.logging_utils import get_logger
+
+
+logger = get_logger(__name__)
 
 
 def load_dataset(module_name):
@@ -24,12 +29,6 @@ def load_dataset(module_name):
         raise FileNotFoundError(f"Dataset file not found: {path}")
 
     df = pd.read_csv(path)
+    logger.info("Loaded dataset '%s' from %s with shape %s", module_name, path, df.shape)
 
     return df, module_config
-
-
-# Test block
-if __name__ == "__main__":
-    df, cfg = load_dataset("credit_risk")
-    print("Dataset shape:", df.shape)
-    print("Numerical features:", cfg["numerical_features"])
