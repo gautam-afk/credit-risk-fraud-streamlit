@@ -3,6 +3,18 @@ from functools import lru_cache
 from pathlib import Path
 
 
+def _apply_sklearn_compatibility_fixes(model):
+    """Patch common compatibility gaps on deserialized sklearn models."""
+    if (
+        model.__class__.__name__ == "LogisticRegression"
+        and not hasattr(model, "multi_class")
+    ):
+        # sklearn version mismatches can omit this attribute.
+        model.multi_class = "auto"
+
+    return model
+
+
 def get_repo_root():
     return Path(__file__).resolve().parents[2]
 
@@ -30,7 +42,8 @@ def _load_model_bundle_cached(resolved_model_path):
             f"Model bundle at {path} must contain exactly (model, preprocessor)."
         )
 
-    return bundle[0], bundle[1]
+    model = _apply_sklearn_compatibility_fixes(bundle[0])
+    return model, bundle[1]
 
 
 def load_model_bundle(model_path):

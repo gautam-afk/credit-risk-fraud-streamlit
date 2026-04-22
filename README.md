@@ -106,6 +106,29 @@ Saved artifacts:
 streamlit run app/streamlit_app.py
 ```
 
+## Deploy Online
+
+### 1) Push to GitHub
+
+From the repository root:
+
+```bash
+git add .
+git commit -m "Fix scoring compatibility and deployment docs"
+git push origin main
+```
+
+### 2) Deploy on Streamlit Community Cloud
+
+1. Open [https://share.streamlit.io](https://share.streamlit.io) and sign in with GitHub.
+2. Click **New app**.
+3. Select repository: `gautam-afk/credit-risk-fraud-streamlit`.
+4. Set branch: `main`.
+5. Set main file path: `app/streamlit_app.py`.
+6. Click **Deploy**.
+
+After deployment, Streamlit provides a public app URL that stays linked to this GitHub repository.
+
 The applicant form collects:
 
 - credit fields:
